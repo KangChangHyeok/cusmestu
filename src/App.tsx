@@ -723,7 +723,10 @@ function DesignTab({
 				</div>
 			</div>
 			<div className="tldraw-wrapper">
-				<Tldraw onMount={handleEditorMount} />
+				<Tldraw 
+				onMount={handleEditorMount}
+				 licenseKey='tldraw-2026-01-04/WyJqWXh1VkZQTCIsWyIqIl0sMTYsIjIwMjYtMDEtMDQiXQ.DOPgWWJU87W+Pu4Ug4M+OfNVXPvLCQjpM35TLM2LaBgqSQMZd9VYCGR22b12N/aIs/Boj2IuoHQlRseuRQmF/w' 
+				 />
 			</div>
 			
 			{/* 베이스 모달 오버레이 */}
