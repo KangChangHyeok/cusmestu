@@ -164,7 +164,10 @@ function MoodboardTab({ editorRef }: MoodboardTabProps) {
 
 	return (
 		<div className="moodboard-container">
-			<Tldraw onMount={handleEditorMount} />
+			<Tldraw 
+			onMount={handleEditorMount}
+			licenseKey='tldraw-2026-01-04/WyJqWXh1VkZQTCIsWyIqIl0sMTYsIjIwMjYtMDEtMDQiXQ.DOPgWWJU87W+Pu4Ug4M+OfNVXPvLCQjpM35TLM2LaBgqSQMZd9VYCGR22b12N/aIs/Boj2IuoHQlRseuRQmF/w'
+			/>
 		</div>
 	)
 }
