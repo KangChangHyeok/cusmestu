@@ -438,23 +438,45 @@ function DesignTab({
 
 		try {
 			// 현재 페이지의 모든 도형 가져오기
-			const shapes = editorRef.current.getCurrentPageShapes()
+			const allShapes = editorRef.current.getCurrentPageShapes()
 			
-			if (shapes.length === 0) {
+			if (allShapes.length === 0) {
 				alert('화이트보드에 이미지가 없습니다.')
 				return
 			}
 
-			// 모든 도형의 경계 상자 계산
-			const bounds = editorRef.current.getCurrentPageBounds()
-			if (!bounds) {
-				alert('화이트보드에 표시할 내용이 없습니다.')
-				return
+			// 프레임이 있는지 확인
+			const frames = allShapes.filter(shape => shape.type === 'frame')
+			
+			let shapesToExport = allShapes
+			
+			// 프레임이 있다면, 프레임 안에 있는 shape들만 가져오기
+			if (frames.length > 0) {
+				// 첫 번째 프레임 (스케치영역)에 있는 shape들만 필터링
+				const sketchFrame = frames[0]
+				
+				// 프레임 안에 있는 shape들 가져오기 (parentId가 프레임 id인 것들)
+				const frameShapes = allShapes.filter(shape => 
+					shape.parentId === sketchFrame.id && shape.type !== 'frame'
+				)
+				
+				console.log('프레임 감지됨')
+				console.log('프레임 ID:', sketchFrame.id)
+				console.log('프레임 안의 shape 개수:', frameShapes.length)
+				console.log('프레임 안의 shapes:', frameShapes)
+				
+				if (frameShapes.length === 0) {
+					alert('프레임 안에 이미지가 없습니다.')
+					return
+				}
+				
+				shapesToExport = frameShapes
+			} else {
+				console.log('프레임이 없어서 전체 화면의 shape들을 사용합니다.')
 			}
 			
-			console.log(bounds)
-			// 하나의 이미지로 추출하기
-			const image = await editorRef.current.toImageDataUrl(shapes)
+			// 선택된 shape들을 이미지로 추출하기
+			const image = await editorRef.current.toImageDataUrl(shapesToExport)
 			console.log(image.url)
 			
 			// AI로 이미지 변환
