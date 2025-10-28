@@ -613,6 +613,21 @@ function DesignTab({
 				alert('스케치 영역에 이미지가 없습니다.')
 				return
 			}
+
+			// 베이스 이미지(로퍼 또는 힐)가 스케치 영역에 있는지 확인
+			const assets = editorRef.current.getAssets()
+			const hasBaseImage = shapesInSketchArea.some(shape => {
+				if (shape.type !== 'image') return false
+				const asset = assets.find(a => a.id === (shape as any).props?.assetId)
+				if (!asset) return false
+				const src = asset.props?.src || ''
+				return src.includes('loafer.JPG') || src.includes('heel.JPG')
+			})
+
+			if (!hasBaseImage) {
+				alert('스케치 영역에 베이스 이미지(로퍼 또는 힐)가 필요합니다.')
+				return
+			}
 			
 			// 스케치 영역 안에 있는 shape들만 이미지로 추출
 			const image = await editorRef.current.toImageDataUrl(shapesInSketchArea)
