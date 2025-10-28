@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Tldraw, Editor } from 'tldraw'
+import { Tldraw, Editor, TLEditorComponents, useEditor } from 'tldraw'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import './App.css'
 
@@ -46,11 +46,13 @@ function App() {
 				<div style={{ display: activeTab === 'moodboard' ? 'block' : 'none' }}>
 					<MoodboardTab 
 						editorRef={moodboardEditorRef}
+						activeTab={activeTab}
 					/>
 				</div>
 				<div style={{ display: activeTab === 'design' ? 'block' : 'none' }}>
 					<DesignTab 
 						editorRef={designEditorRef}
+						activeTab={activeTab}
 						showSubButtons={showSubButtons}
 						setShowSubButtons={setShowSubButtons}
 						showStrapModal={showStrapModal}
@@ -78,6 +80,114 @@ function App() {
 
 interface MoodboardTabProps {
 	editorRef: React.MutableRefObject<Editor | null>
+	activeTab: TabType
+}
+
+// 디자인 탭용 스케치 영역 컴포넌트
+function DesignSketchComponent() {
+	const editor = useEditor()
+
+	return (
+		<div
+			style={{
+				position: 'absolute',
+				top: 100,
+				left: 100,
+				width: 500,
+				height: 400,
+				border: '2px dashed #ccc',
+				borderRadius: 8,
+				backgroundColor: 'rgba(255, 255, 255, 0.5)',
+				pointerEvents: 'none',
+				zIndex: 0,
+			}}
+			onPointerDown={editor.markEventAsHandled}
+		>
+			<div
+				style={{
+					position: 'absolute',
+					top: -30,
+					left: 10,
+					fontSize: 14,
+					color: '#666',
+					fontWeight: 'bold',
+				}}
+			>
+				스케치 영역
+			</div>
+		</div>
+	)
+}
+
+// 무드보드 카테고리 영역 컴포넌트
+function MoodboardCategoryComponent() {
+	const editor = useEditor()
+
+	const categories = [
+		'컨셉/스타일',
+		'컬러 팔레트',
+		'소재/패턴',
+		'실루엣',
+		'디테일',
+		'레퍼런스'
+	]
+
+	// 고정된 위치와 크기
+	const positions = [
+		{ top: 50, left: 50, width: 340, height: 240 },   // 컨셉/스타일
+		{ top: 50, left: 410, width: 340, height: 240 },   // 컬러 팔레트
+		{ top: 50, left: 770, width: 340, height: 240 },   // 소재/패턴
+		{ top: 310, left: 50, width: 340, height: 240 },  // 실루엣
+		{ top: 310, left: 410, width: 340, height: 240 }, // 디테일
+		{ top: 310, left: 770, width: 340, height: 240 }  // 레퍼런스
+	]
+
+	return (
+		<>
+			{categories.map((category, i) => (
+				<div
+					key={i}
+					style={{
+						position: 'absolute',
+						top: positions[i].top,
+						left: positions[i].left,
+						width: positions[i].width,
+						height: positions[i].height,
+						border: '2px solid #ccc',
+						borderRadius: 8,
+						backgroundColor: 'rgba(255, 255, 255, 0.3)',
+						pointerEvents: 'none',
+						zIndex: 0,
+					}}
+					onPointerDown={editor.markEventAsHandled}
+				>
+					<div
+						style={{
+							position: 'absolute',
+							top: 10,
+							left: 10,
+							fontSize: 16,
+							color: '#333',
+							fontWeight: 'bold',
+							pointerEvents: 'none',
+						}}
+					>
+						{category}
+					</div>
+				</div>
+			))}
+		</>
+	)
+}
+
+// 무드보드 탭용 컴포넌트
+const moodboardComponents: TLEditorComponents = {
+	OnTheCanvas: MoodboardCategoryComponent,
+}
+
+// 디자인 탭용 컴포넌트
+const designComponents: TLEditorComponents = {
+	OnTheCanvas: DesignSketchComponent,
 }
 
 function MoodboardTab({ editorRef }: MoodboardTabProps) {
@@ -85,88 +195,14 @@ function MoodboardTab({ editorRef }: MoodboardTabProps) {
 		if (editorRef.current !== editor) {
 			editorRef.current = editor
 		}
-		// 무드보드 진입 시 템플릿 구역 생성 (한 번만)
-		const shapes = editor.getCurrentPageShapes()
-		if (shapes.length === 0) {
-			createMoodboardTemplate(editor)
-		}
-	}
-
-	const createMoodboardTemplate = (editor: Editor) => {
-		// 화이트보드 크기 기준으로 계산 (일반적인 화이트보드 크기: 1200x800)
-		const boardWidth = 1200
-		const boardHeight = 800
-		const totalArea = boardWidth * boardHeight
-		const rectArea = totalArea / 6  // 화이트보드의 1/6 면적
-		
-		// 2행 3열 배치를 위한 사각형 크기 계산
-		const rectWidth = Math.sqrt(rectArea * 3 / 2)  // 가로 비율 고려
-		const rectHeight = rectArea / rectWidth
-		
-
-		// 6개 사각형 생성 (2행 3열)
-		const shapes = []
-		const margin = 20  // 사각형 간 간격
-		const startX = 50  // 좌측 여백
-		const startY = 50  // 상단 여백
-		
-		for (let i = 0; i < 6; i++) {
-			const row = Math.floor(i / 3)
-			const col = i % 3
-			const x = startX + col * (rectWidth + margin)
-			const y = startY + row * (rectHeight + margin)
-			
-			// 사각형 생성 (배경색 추가)
-			shapes.push({
-				type: 'geo',
-				x: x,
-				y: y,
-				props: {
-					geo: 'rectangle',
-					w: rectWidth,
-					h: rectHeight,
-					fill: 'semi',
-					color: 'grey',
-					size: 'm'
-				}
-			})
-			
-			// 텍스트 영역을 위한 작은 사각형 (상단 중앙)
-			shapes.push({
-				type: 'geo',
-				x: x + rectWidth / 2 - 100,
-				y: y + 20,
-				props: {
-					geo: 'rectangle',
-					w: 200,
-					h: 40,
-					fill: 'solid',
-					color: 'white',
-					size: 's'
-				}
-			})
-			
-			// 카테고리 텍스트 추가 (상단 중앙 사각형 안에)
-			shapes.push({
-				type: 'text',
-				x: x + rectWidth / 2 - 90,
-				y: y + 30,
-				props: {
-					size: 'm',
-					color: 'black',
-					font: 'draw'
-				}
-			})
-		}
-		
-		editor.createShapes(shapes)
 	}
 
 	return (
 		<div className="moodboard-container">
 			<Tldraw 
-			onMount={handleEditorMount}
-			licenseKey='tldraw-2026-01-04/WyJqWXh1VkZQTCIsWyIqIl0sMTYsIjIwMjYtMDEtMDQiXQ.DOPgWWJU87W+Pu4Ug4M+OfNVXPvLCQjpM35TLM2LaBgqSQMZd9VYCGR22b12N/aIs/Boj2IuoHQlRseuRQmF/w'
+				onMount={handleEditorMount}
+				licenseKey='tldraw-2026-01-04/WyJqWXh1VkZQTCIsWyIqIl0sMTYsIjIwMjYtMDEtMDQiXQ.DOPgWWJU87W+Pu4Ug4M+OfNVXPvLCQjpM35TLM2LaBgqSQMZd9VYCGR22b12N/aIs/Boj2IuoHQlRseuRQmF/w'
+				components={moodboardComponents}
 			/>
 		</div>
 	)
@@ -174,6 +210,7 @@ function MoodboardTab({ editorRef }: MoodboardTabProps) {
 
 interface DesignTabProps {
 	editorRef: React.MutableRefObject<Editor | null>
+	activeTab: TabType
 	showSubButtons: boolean
 	setShowSubButtons: (value: boolean) => void
 	showStrapModal: boolean
@@ -196,6 +233,7 @@ interface DesignTabProps {
 
 function DesignTab({
 	editorRef,
+	activeTab: _activeTab,
 	showSubButtons,
 	setShowSubButtons,
 	showStrapModal,
@@ -220,6 +258,17 @@ function DesignTab({
 		if (editorRef.current !== editor) {
 			editorRef.current = editor
 		}
+		
+		// 이미 shape가 있는지 확인
+		const shapes = editor.getCurrentPageShapes()
+		if (shapes.length === 0) {
+			createDesignTemplate(editor)
+		}
+	}
+
+	const createDesignTemplate = (_editor: Editor) => {
+		// 디자인 탭 초기화
+		console.log('스케치 영역 생성 완료')
 	}
 
 	const handleBaseClick = () => {
@@ -302,15 +351,15 @@ function DesignTab({
 
 			console.log('에셋 생성 완료:', asset)
 
-			// 편집 가능한 이미지 도형 생성
+			// 편집 가능한 이미지 도형 생성 (스케치 영역 컴포넌트 안에 배치)
 			const imageShape = {
 				type: 'image' as const,
-				x: 200,
-				y: 200,
+				x: 150, // 컴포넌트 영역 기준 x: 100 + 여백 50
+				y: 150, // 컴포넌트 영역 기준 y: 100 + 여백 50
 				props: {
 					assetId: asset.id,
-					w: 300,
-					h: 200
+					w: 400,
+					h: 280
 				}
 			}
 
@@ -445,38 +494,53 @@ function DesignTab({
 				return
 			}
 
-			// 프레임이 있는지 확인
-			const frames = allShapes.filter(shape => shape.type === 'frame')
-			
-			let shapesToExport = allShapes
-			
-			// 프레임이 있다면, 프레임 안에 있는 shape들만 가져오기
-			if (frames.length > 0) {
-				// 첫 번째 프레임 (스케치영역)에 있는 shape들만 필터링
-				const sketchFrame = frames[0]
+			// 스케치 영역 범위 정의 (컴포넌트 좌표 기준)
+			const sketchArea = {
+				x: 100,  // 컴포넌트의 left 위치
+				y: 100,  // 컴포넌트의 top 위치
+				width: 500,
+				height: 400
+			}
+
+			// 스케치 영역 안에 있는 이미지만 필터링
+			const shapesInSketchArea = allShapes.filter(shape => {
+				// 이미지 타입만 확인
+				if (shape.type !== 'image') return false
 				
-				// 프레임 안에 있는 shape들 가져오기 (parentId가 프레임 id인 것들)
-				const frameShapes = allShapes.filter(shape => 
-					shape.parentId === sketchFrame.id && shape.type !== 'frame'
+				// 이미지의 중심점 또는 좌상단 좌표로 확인
+				const imgX = shape.x
+				const imgY = shape.y
+				const imgW = (shape as any).props?.w || 0
+				const imgH = (shape as any).props?.h || 0
+				
+				// 이미지가 스케치 영역과 겹치는지 확인
+				const imgRight = imgX + imgW
+				const imgBottom = imgY + imgH
+				const sketchRight = sketchArea.x + sketchArea.width
+				const sketchBottom = sketchArea.y + sketchArea.height
+				
+				// 이미지가 스케치 영역과 겹치는 경우
+				const isOverlapping = !(
+					imgRight < sketchArea.x ||
+					imgX > sketchRight ||
+					imgBottom < sketchArea.y ||
+					imgY > sketchBottom
 				)
 				
-				console.log('프레임 감지됨')
-				console.log('프레임 ID:', sketchFrame.id)
-				console.log('프레임 안의 shape 개수:', frameShapes.length)
-				console.log('프레임 안의 shapes:', frameShapes)
-				
-				if (frameShapes.length === 0) {
-					alert('프레임 안에 이미지가 없습니다.')
-					return
-				}
-				
-				shapesToExport = frameShapes
-			} else {
-				console.log('프레임이 없어서 전체 화면의 shape들을 사용합니다.')
+				return isOverlapping
+			})
+			
+			console.log('전체 shape 개수:', allShapes.length)
+			console.log('스케치 영역 내 shape 개수:', shapesInSketchArea.length)
+			console.log('스케치 영역 내 shapes:', shapesInSketchArea)
+			
+			if (shapesInSketchArea.length === 0) {
+				alert('스케치 영역에 이미지가 없습니다.')
+				return
 			}
 			
-			// 선택된 shape들을 이미지로 추출하기
-			const image = await editorRef.current.toImageDataUrl(shapesToExport)
+			// 스케치 영역 안에 있는 shape들만 이미지로 추출
+			const image = await editorRef.current.toImageDataUrl(shapesInSketchArea)
 			console.log(image.url)
 			
 			// AI로 이미지 변환
@@ -749,9 +813,10 @@ function DesignTab({
 			</div>
 			<div className="tldraw-wrapper">
 				<Tldraw 
-				onMount={handleEditorMount}
-				 licenseKey='tldraw-2026-01-04/WyJqWXh1VkZQTCIsWyIqIl0sMTYsIjIwMjYtMDEtMDQiXQ.DOPgWWJU87W+Pu4Ug4M+OfNVXPvLCQjpM35TLM2LaBgqSQMZd9VYCGR22b12N/aIs/Boj2IuoHQlRseuRQmF/w' 
-				 />
+					onMount={handleEditorMount}
+					licenseKey='tldraw-2026-01-04/WyJqWXh1VkZQTCIsWyIqIl0sMTYsIjIwMjYtMDEtMDQiXQ.DOPgWWJU87W+Pu4Ug4M+OfNVXPvLCQjpM35TLM2LaBgqSQMZd9VYCGR22b12N/aIs/Boj2IuoHQlRseuRQmF/w'
+					components={designComponents} 
+				/>
 			</div>
 			
 			{/* 베이스 모달 오버레이 */}
