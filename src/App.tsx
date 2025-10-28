@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Tldraw, Editor, TLEditorComponents, useEditor } from 'tldraw'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import './App.css'
@@ -86,15 +86,65 @@ interface MoodboardTabProps {
 // 디자인 탭용 스케치 영역 컴포넌트
 function DesignSketchComponent() {
 	const editor = useEditor()
+	const [hasImageInSketchArea, setHasImageInSketchArea] = useState(false)
+
+	// 스케치 영역 좌표
+	const sketchArea = {
+		x: 100,
+		y: 100,
+		width: 500,
+		height: 400
+	}
+
+	// shapes 변경을 감지하여 스케치 영역 내 이미지 여부 업데이트
+	useEffect(() => {
+		const checkImageInSketchArea = () => {
+			const allShapes = editor.getCurrentPageShapes()
+			const hasImage = allShapes.some((shape: any) => {
+				if (shape.type !== 'image') return false
+				
+				const imgX = shape.x
+				const imgY = shape.y
+				const imgW = shape.props?.w || 0
+				const imgH = shape.props?.h || 0
+				
+				// 이미지가 스케치 영역 안에 완전히 들어왔는지 확인
+				return (
+					imgX >= sketchArea.x &&
+					imgY >= sketchArea.y &&
+					imgX + imgW <= sketchArea.x + sketchArea.width &&
+					imgY + imgH <= sketchArea.y + sketchArea.height
+				)
+			})
+			setHasImageInSketchArea(hasImage)
+		}
+
+		// 초기 체크
+		checkImageInSketchArea()
+
+		// shapes 변경 감지
+		const unsubscribe = editor.store.listen(() => {
+			checkImageInSketchArea()
+		})
+
+		return () => {
+			unsubscribe()
+		}
+	}, [editor])
+
+	const handleTransform = () => {
+		// 커스텀 이벤트 발생
+		window.dispatchEvent(new CustomEvent('transform-sketch'))
+	}
 
 	return (
 		<div
 			style={{
 				position: 'absolute',
-				top: 100,
-				left: 100,
-				width: 500,
-				height: 400,
+				top: sketchArea.y,
+				left: sketchArea.x,
+				width: sketchArea.width,
+				height: sketchArea.height,
 				border: '2px dashed #ccc',
 				borderRadius: 8,
 				backgroundColor: 'rgba(255, 255, 255, 0.5)',
@@ -115,6 +165,31 @@ function DesignSketchComponent() {
 			>
 				스케치 영역
 			</div>
+			{hasImageInSketchArea && (
+				<button
+					onClick={handleTransform}
+					style={{
+						position: 'absolute',
+						top: 10,
+						right: 10,
+						padding: '8px 16px',
+						fontSize: 14,
+						fontWeight: 'bold',
+						color: '#fff',
+						backgroundColor: '#007bff',
+						border: 'none',
+						borderRadius: 4,
+						cursor: 'pointer',
+						pointerEvents: 'auto',
+						zIndex: 1,
+					}}
+					onPointerDown={(e) => {
+						e.stopPropagation()
+					}}
+				>
+					변환
+				</button>
+			)}
 		</div>
 	)
 }
@@ -553,6 +628,19 @@ function DesignTab({
 		}
 	}
 
+	// 변환 버튼 클릭 이벤트 리스너
+	useEffect(() => {
+		const handleTransformEvent = async () => {
+			await exportCanvasAsImage()
+		}
+
+		window.addEventListener('transform-sketch', handleTransformEvent)
+		return () => {
+			window.removeEventListener('transform-sketch', handleTransformEvent)
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [])
+
 	const transformImageWithAI = async (imageDataUrl: string, leatherImageUrl?: string) => {
 		let progressInterval: number | undefined
 		
@@ -702,10 +790,10 @@ function DesignTab({
 
 			console.log('내보낸 이미지 에셋 생성 완료:', asset)
 
-			// 편집 가능한 이미지 도형 생성
+			// 편집 가능한 이미지 도형 생성 (스케치 영역 오른쪽에 배치)
 			const imageShape = {
 				type: 'image' as const,
-				x: 100,
+				x: 650, // 스케치 영역 x: 100 + width: 500 = 600 오른쪽에 배치
 				y: 100,
 				props: {
 					assetId: asset.id,
