@@ -20,6 +20,8 @@ function App() {
 	const [selectedColor, setSelectedColor] = useState<string>('')
 	const [selectedLeather, setSelectedLeather] = useState<string>('')
 	const [isLoading, setIsLoading] = useState(false)
+	const [selectedGender, setSelectedGender] = useState<'men' | 'women' | null>(null)
+	const [selectedCategory, setSelectedCategory] = useState<'boots' | 'flats' | 'heels' | 'loafers' | 'sandal' | 'sneakers' | null>(null)
 
 	return (
 		<div className="app">
@@ -47,7 +49,7 @@ function App() {
 						activeTab={activeTab}
 					/>
 				)}
-				{activeTab === 'design' && (
+					{activeTab === 'design' && (
 					<DesignTab 
 						editorRef={designEditorRef}
 						activeTab={activeTab}
@@ -65,6 +67,10 @@ function App() {
 						setSelectedLeather={setSelectedLeather}
 						isLoading={isLoading}
 						setIsLoading={setIsLoading}
+						selectedGender={selectedGender}
+						setSelectedGender={setSelectedGender}
+						selectedCategory={selectedCategory}
+						setSelectedCategory={setSelectedCategory}
 					/>
 				)}
 			</div>
@@ -294,6 +300,10 @@ interface DesignTabProps {
 	setSelectedLeather: (value: string) => void
 	isLoading: boolean
 	setIsLoading: (value: boolean) => void
+	selectedGender: 'men' | 'women' | null
+	setSelectedGender: (value: 'men' | 'women' | null) => void
+	selectedCategory: 'boots' | 'flats' | 'heels' | 'loafers' | 'sandal' | 'sneakers' | null
+	setSelectedCategory: (value: 'boots' | 'flats' | 'heels' | 'loafers' | 'sandal' | 'sneakers' | null) => void
 }
 
 	function DesignTab({
@@ -312,7 +322,11 @@ interface DesignTabProps {
 	selectedLeather,
 	setSelectedLeather,
 	isLoading,
-	setIsLoading
+	setIsLoading,
+	selectedGender,
+	setSelectedGender,
+	selectedCategory,
+	setSelectedCategory
 }: DesignTabProps) {
 
 	const handleEditorMount = (editor: Editor) => {
@@ -337,6 +351,11 @@ interface DesignTabProps {
 		setShowAccessoryModal(false) // 다른 모달 닫기
 		setShowColorModal(false) // 다른 모달 닫기
 		setShowLeatherModal(false) // 다른 모달 닫기
+		// 모달 열 때 선택 상태 초기화
+		if (!showSubButtons) {
+			setSelectedGender(null)
+			setSelectedCategory(null)
+		}
 	}
 
 	const handleAccessoryClick = () => {
@@ -370,10 +389,10 @@ interface DesignTabProps {
 		setShowLeatherModal(false)
 	}
 
-	const loadSketchTemplate = async (type: '더비' | '몽크스트랩' | '보트' | '사막화' | '윙팁' | '첼시') => {
+	const loadSketchTemplate = async (imagePath: string, imageName: string) => {
 		if (!editorRef.current) return
 
-		const imageUrl = `${window.location.origin}/${type}.png`
+		const imageUrl = `${window.location.origin}${imagePath}`
 
 		try {
 			// 이미지 로드 및 배경 제거
@@ -420,7 +439,7 @@ interface DesignTabProps {
 				
 				// TLImageAsset 구조에 맞는 에셋 생성
 				const imageAsset = {
-					id: `asset:${type}-${Date.now()}` as any,
+					id: `asset:${imageName}-${Date.now()}` as any,
 					typeName: 'asset' as const,
 					type: 'image' as const,
 					props: {
@@ -429,9 +448,11 @@ interface DesignTabProps {
 						h: img.height,
 						mimeType: 'image/png',
 						isAnimated: false,
-						name: `${type}.png`
+						name: imageName
 					},
-					meta: {}
+					meta: {
+						originalPath: imagePath // 원본 경로 저장 (베이스 이미지 인식용)
+					}
 				}
 
 				// 에셋을 에디터에 추가
@@ -637,14 +658,21 @@ interface DesignTabProps {
 				const asset = assets.find(a => a.id === (shape as any).props?.assetId)
 				if (!asset) return false
 				
-				// 처리된 이미지는 asset의 name이나 src로 판단
-				const src = asset.props?.src || ''
-				const name = (asset.props as any)?.name || ''
+				// 원본 경로가 /sketchs/men/ 또는 /sketchs/women/ 경로를 포함하는지 확인
+				const originalPath = (asset.meta as any)?.originalPath || ''
+				const isBaseImage = originalPath.includes('/sketchs/men/') || originalPath.includes('/sketchs/women/')
 				
-				const baseImageNames = ['더비', '몽크스트랩', '보트', '사막화', '윙팁', '첼시']
-				return baseImageNames.some(baseName => 
-					(name && name.includes(baseName)) || (src && src.includes(baseName))
-				)
+				// 원본 경로가 없는 경우 (기존 방식 호환성을 위해) name이나 src로 판단
+				if (!originalPath) {
+					const src = asset.props?.src || ''
+					const name = (asset.props as any)?.name || ''
+					const baseImageNames = ['더비', '몽크스트랩', '보트', '사막화', '윙팁', '첼시']
+					return baseImageNames.some(baseName => 
+						(name && name.includes(baseName)) || (src && src.includes(baseName))
+					)
+				}
+				
+				return isBaseImage
 			})
 
 			if (!hasBaseImage) {
@@ -905,90 +933,381 @@ interface DesignTabProps {
 							</button>
 						</div>
 						<div className="modal-body">
-							<div 
-								className="modal-image-item"
-								onClick={() => {
-									loadSketchTemplate('더비')
-									setShowSubButtons(false)
-								}}
-							>
-								<img 
-									src="/더비.png" 
-									alt="더비" 
-									className="modal-image"
-								/>
-								<span className="modal-label">더비</span>
-							</div>
-							<div 
-								className="modal-image-item"
-								onClick={() => {
-									loadSketchTemplate('몽크스트랩')
-									setShowSubButtons(false)
-								}}
-							>
-								<img 
-									src="/몽크스트랩.png" 
-									alt="몽크스트랩" 
-									className="modal-image"
-								/>
-								<span className="modal-label">몽크스트랩</span>
-							</div>
-							<div 
-								className="modal-image-item"
-								onClick={() => {
-									loadSketchTemplate('보트')
-									setShowSubButtons(false)
-								}}
-							>
-								<img 
-									src="/보트.png" 
-									alt="보트" 
-									className="modal-image"
-								/>
-								<span className="modal-label">보트</span>
-							</div>
-							<div 
-								className="modal-image-item"
-								onClick={() => {
-									loadSketchTemplate('사막화')
-									setShowSubButtons(false)
-								}}
-							>
-								<img 
-									src="/사막화.png" 
-									alt="사막화" 
-									className="modal-image"
-								/>
-								<span className="modal-label">사막화</span>
-							</div>
-							<div 
-								className="modal-image-item"
-								onClick={() => {
-									loadSketchTemplate('윙팁')
-									setShowSubButtons(false)
-								}}
-							>
-								<img 
-									src="/윙팁.png" 
-									alt="윙팁" 
-									className="modal-image"
-								/>
-								<span className="modal-label">윙팁</span>
-							</div>
-							<div 
-								className="modal-image-item"
-								onClick={() => {
-									loadSketchTemplate('첼시')
-									setShowSubButtons(false)
-								}}
-							>
-								<img 
-									src="/첼시.png" 
-									alt="첼시" 
-									className="modal-image"
-								/>
-								<span className="modal-label">첼시</span>
-							</div>
+							{!selectedGender ? (
+								// 성별 선택
+								<>
+									<div 
+										className="modal-image-item"
+										onClick={() => setSelectedGender('men')}
+									>
+										<div className="modal-image gender-select" style={{ backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold' }}>
+											👔 남성
+										</div>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => setSelectedGender('women')}
+									>
+										<div className="modal-image gender-select" style={{ backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold' }}>
+											👗 여성
+										</div>
+									</div>
+								</>
+							) : selectedGender === 'men' ? (
+								// 남성 신발 타입 선택
+								<>
+									<div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+										<button 
+											className="template-btn"
+											onClick={() => {
+												setSelectedGender(null)
+												setSelectedCategory(null)
+											}}
+										>
+											← 뒤로
+										</button>
+										<span style={{ fontSize: '1.125rem', fontWeight: '300', letterSpacing: '2px' }}>남성 신발 선택</span>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => {
+											loadSketchTemplate('/sketchs/men/더비.png', '더비.png')
+											setShowSubButtons(false)
+											setSelectedGender(null)
+										}}
+									>
+										<img 
+											src="/sketchs/men/더비.png" 
+											alt="더비" 
+											className="modal-image"
+										/>
+										<span className="modal-label">더비</span>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => {
+											loadSketchTemplate('/sketchs/men/로퍼.png', '로퍼.png')
+											setShowSubButtons(false)
+											setSelectedGender(null)
+										}}
+									>
+										<img 
+											src="/sketchs/men/로퍼.png" 
+											alt="로퍼" 
+											className="modal-image"
+										/>
+										<span className="modal-label">로퍼</span>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => {
+											loadSketchTemplate('/sketchs/men/몽크스트랩.png', '몽크스트랩.png')
+											setShowSubButtons(false)
+											setSelectedGender(null)
+										}}
+									>
+										<img 
+											src="/sketchs/men/몽크스트랩.png" 
+											alt="몽크스트랩" 
+											className="modal-image"
+										/>
+										<span className="modal-label">몽크스트랩</span>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => {
+											loadSketchTemplate('/sketchs/men/보트슈즈.png', '보트슈즈.png')
+											setShowSubButtons(false)
+											setSelectedGender(null)
+										}}
+									>
+										<img 
+											src="/sketchs/men/보트슈즈.png" 
+											alt="보트슈즈" 
+											className="modal-image"
+										/>
+										<span className="modal-label">보트슈즈</span>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => {
+											loadSketchTemplate('/sketchs/men/옥스포드.png', '옥스포드.png')
+											setShowSubButtons(false)
+											setSelectedGender(null)
+										}}
+									>
+										<img 
+											src="/sketchs/men/옥스포드.png" 
+											alt="옥스포드" 
+											className="modal-image"
+										/>
+										<span className="modal-label">옥스포드</span>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => {
+											loadSketchTemplate('/sketchs/men/테슬로퍼.png', '테슬로퍼.png')
+											setShowSubButtons(false)
+											setSelectedGender(null)
+										}}
+									>
+										<img 
+											src="/sketchs/men/테슬로퍼.png" 
+											alt="테슬로퍼" 
+											className="modal-image"
+										/>
+										<span className="modal-label">테슬로퍼</span>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => {
+											loadSketchTemplate('/sketchs/men/플레인토.png', '플레인토.png')
+											setShowSubButtons(false)
+											setSelectedGender(null)
+										}}
+									>
+										<img 
+											src="/sketchs/men/플레인토.png" 
+											alt="플레인토" 
+											className="modal-image"
+										/>
+										<span className="modal-label">플레인토</span>
+									</div>
+								</>
+							) : !selectedCategory ? (
+								// 여성 카테고리 선택
+								<>
+									<div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+										<button 
+											className="template-btn"
+											onClick={() => {
+												setSelectedGender(null)
+												setSelectedCategory(null)
+											}}
+										>
+											← 뒤로
+										</button>
+										<span style={{ fontSize: '1.125rem', fontWeight: '300', letterSpacing: '2px' }}>여성 신발 카테고리 선택</span>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => setSelectedCategory('boots')}
+									>
+										<div className="modal-image category-select" style={{ backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+											부츠
+										</div>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => setSelectedCategory('flats')}
+									>
+										<div className="modal-image category-select" style={{ backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+											플랫
+										</div>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => setSelectedCategory('heels')}
+									>
+										<div className="modal-image category-select" style={{ backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+											힐
+										</div>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => setSelectedCategory('loafers')}
+									>
+										<div className="modal-image category-select" style={{ backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+											로퍼
+										</div>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => setSelectedCategory('sandal')}
+									>
+										<div className="modal-image category-select" style={{ backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+											샌들
+										</div>
+									</div>
+									<div 
+										className="modal-image-item"
+										onClick={() => setSelectedCategory('sneakers')}
+									>
+										<div className="modal-image category-select" style={{ backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold' }}>
+											스니커즈
+										</div>
+									</div>
+								</>
+							) : (
+								// 여성 하위 신발 이미지 리스트
+								<>
+									<div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+										<button 
+											className="template-btn"
+											onClick={() => setSelectedCategory(null)}
+										>
+											← 뒤로
+										</button>
+										<span style={{ fontSize: '1.125rem', fontWeight: '300', letterSpacing: '2px' }}>
+											여성 {selectedCategory === 'boots' ? '부츠' : selectedCategory === 'flats' ? '플랫' : selectedCategory === 'heels' ? '힐' : selectedCategory === 'loafers' ? '로퍼' : selectedCategory === 'sandal' ? '샌들' : '스니커즈'} 선택
+										</span>
+									</div>
+									{selectedCategory === 'boots' && (
+										<>
+											{[1, 2, 3].map((num) => (
+												<div 
+													key={num}
+													className="modal-image-item"
+													onClick={() => {
+														loadSketchTemplate(`/sketchs/women/boots/${num}.png`, `${num}.png`)
+														setShowSubButtons(false)
+														setSelectedGender(null)
+														setSelectedCategory(null)
+													}}
+												>
+													<img 
+														src={`/sketchs/women/boots/${num}.png`}
+														alt={`부츠 ${num}`}
+														className="modal-image"
+													/>
+													<span className="modal-label">부츠 {num}</span>
+												</div>
+											))}
+										</>
+									)}
+									{selectedCategory === 'flats' && (
+										<>
+											{[1, 2, 3, 4, 5].map((num) => (
+												<div 
+													key={num}
+													className="modal-image-item"
+													onClick={() => {
+														loadSketchTemplate(`/sketchs/women/flats/${num}.png`, `${num}.png`)
+														setShowSubButtons(false)
+														setSelectedGender(null)
+														setSelectedCategory(null)
+													}}
+												>
+													<img 
+														src={`/sketchs/women/flats/${num}.png`}
+														alt={`플랫 ${num}`}
+														className="modal-image"
+													/>
+													<span className="modal-label">플랫 {num}</span>
+												</div>
+											))}
+										</>
+									)}
+									{selectedCategory === 'heels' && (
+										<>
+											{[1, 2, 3].map((num) => (
+												<div 
+													key={num}
+													className="modal-image-item"
+													onClick={() => {
+														loadSketchTemplate(`/sketchs/women/heels/${num}.png`, `${num}.png`)
+														setShowSubButtons(false)
+														setSelectedGender(null)
+														setSelectedCategory(null)
+													}}
+												>
+													<img 
+														src={`/sketchs/women/heels/${num}.png`}
+														alt={`힐 ${num}`}
+														className="modal-image"
+													/>
+													<span className="modal-label">힐 {num}</span>
+												</div>
+											))}
+											{['메리제인', '뮬', '슬릭백', '펌프스'].map((name) => (
+												<div 
+													key={name}
+													className="modal-image-item"
+													onClick={() => {
+														loadSketchTemplate(`/sketchs/women/heels/${name}.png`, `${name}.png`)
+														setShowSubButtons(false)
+														setSelectedGender(null)
+														setSelectedCategory(null)
+													}}
+												>
+													<img 
+														src={`/sketchs/women/heels/${name}.png`}
+														alt={name}
+														className="modal-image"
+													/>
+													<span className="modal-label">{name}</span>
+												</div>
+											))}
+										</>
+									)}
+									{selectedCategory === 'loafers' && (
+										<>
+											{[1, 2, 3, 4, 5].map((num) => (
+												<div 
+													key={num}
+													className="modal-image-item"
+													onClick={() => {
+														loadSketchTemplate(`/sketchs/women/loafers/${num}.png`, `${num}.png`)
+														setShowSubButtons(false)
+														setSelectedGender(null)
+														setSelectedCategory(null)
+													}}
+												>
+													<img 
+														src={`/sketchs/women/loafers/${num}.png`}
+														alt={`로퍼 ${num}`}
+														className="modal-image"
+													/>
+													<span className="modal-label">로퍼 {num}</span>
+												</div>
+											))}
+										</>
+									)}
+									{selectedCategory === 'sandal' && (
+										<>
+											{[1, 2, 3, 4].map((num) => (
+												<div 
+													key={num}
+													className="modal-image-item"
+													onClick={() => {
+														loadSketchTemplate(`/sketchs/women/sandal/${num}.png`, `${num}.png`)
+														setShowSubButtons(false)
+														setSelectedGender(null)
+														setSelectedCategory(null)
+													}}
+												>
+													<img 
+														src={`/sketchs/women/sandal/${num}.png`}
+														alt={`샌들 ${num}`}
+														className="modal-image"
+													/>
+													<span className="modal-label">샌들 {num}</span>
+												</div>
+											))}
+										</>
+									)}
+									{selectedCategory === 'sneakers' && (
+										<>
+											<div 
+												className="modal-image-item"
+												onClick={() => {
+													loadSketchTemplate('/sketchs/women/sneakers/1.png', '1.png')
+													setShowSubButtons(false)
+													setSelectedGender(null)
+													setSelectedCategory(null)
+												}}
+											>
+												<img 
+													src="/sketchs/women/sneakers/1.png"
+													alt="스니커즈 1"
+													className="modal-image"
+												/>
+												<span className="modal-label">스니커즈 1</span>
+											</div>
+										</>
+									)}
+								</>
+							)}
 						</div>
 					</div>
 				</div>
