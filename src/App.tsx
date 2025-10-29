@@ -14,19 +14,17 @@ function App() {
 	// 디자인 탭 상태
 	const designEditorRef = useRef<Editor | null>(null)
 	const [showSubButtons, setShowSubButtons] = useState(false)
-	const [showStrapModal, setShowStrapModal] = useState(false)
 	const [showAccessoryModal, setShowAccessoryModal] = useState(false)
 	const [showColorModal, setShowColorModal] = useState(false)
 	const [showLeatherModal, setShowLeatherModal] = useState(false)
 	const [selectedColor, setSelectedColor] = useState<string>('')
 	const [selectedLeather, setSelectedLeather] = useState<string>('')
 	const [isLoading, setIsLoading] = useState(false)
-	const [loadingProgress, setLoadingProgress] = useState(0)
 
 	return (
 		<div className="app">
 			<div className="header">
-				<h1 className="title">CUSMESTUDIO</h1>
+				<h1 className="title">CUSME STUDIO</h1>
 				<div className="tabs">
 					<button 
 						className={`tab ${activeTab === 'moodboard' ? 'active' : ''}`}
@@ -43,20 +41,18 @@ function App() {
 				</div>
 			</div>
 			<div className="content">
-				<div style={{ display: activeTab === 'moodboard' ? 'block' : 'none' }}>
+				{activeTab === 'moodboard' && (
 					<MoodboardTab 
 						editorRef={moodboardEditorRef}
 						activeTab={activeTab}
 					/>
-				</div>
-				<div style={{ display: activeTab === 'design' ? 'block' : 'none' }}>
+				)}
+				{activeTab === 'design' && (
 					<DesignTab 
 						editorRef={designEditorRef}
 						activeTab={activeTab}
 						showSubButtons={showSubButtons}
 						setShowSubButtons={setShowSubButtons}
-						showStrapModal={showStrapModal}
-						setShowStrapModal={setShowStrapModal}
 						showAccessoryModal={showAccessoryModal}
 						setShowAccessoryModal={setShowAccessoryModal}
 						showColorModal={showColorModal}
@@ -69,10 +65,8 @@ function App() {
 						setSelectedLeather={setSelectedLeather}
 						isLoading={isLoading}
 						setIsLoading={setIsLoading}
-						loadingProgress={loadingProgress}
-						setLoadingProgress={setLoadingProgress}
 					/>
-				</div>
+				)}
 			</div>
 		</div>
 	)
@@ -288,8 +282,6 @@ interface DesignTabProps {
 	activeTab: TabType
 	showSubButtons: boolean
 	setShowSubButtons: (value: boolean) => void
-	showStrapModal: boolean
-	setShowStrapModal: (value: boolean) => void
 	showAccessoryModal: boolean
 	setShowAccessoryModal: (value: boolean) => void
 	showColorModal: boolean
@@ -302,17 +294,13 @@ interface DesignTabProps {
 	setSelectedLeather: (value: string) => void
 	isLoading: boolean
 	setIsLoading: (value: boolean) => void
-	loadingProgress: number
-	setLoadingProgress: (value: number | ((prev: number) => number)) => void
 }
 
-function DesignTab({
+	function DesignTab({
 	editorRef,
 	activeTab: _activeTab,
 	showSubButtons,
 	setShowSubButtons,
-	showStrapModal,
-	setShowStrapModal,
 	showAccessoryModal,
 	setShowAccessoryModal,
 	showColorModal,
@@ -324,9 +312,7 @@ function DesignTab({
 	selectedLeather,
 	setSelectedLeather,
 	isLoading,
-	setIsLoading,
-	loadingProgress,
-	setLoadingProgress
+	setIsLoading
 }: DesignTabProps) {
 
 	const handleEditorMount = (editor: Editor) => {
@@ -348,15 +334,6 @@ function DesignTab({
 
 	const handleBaseClick = () => {
 		setShowSubButtons(!showSubButtons)
-		setShowStrapModal(false) // 다른 모달 닫기
-		setShowAccessoryModal(false) // 다른 모달 닫기
-		setShowColorModal(false) // 다른 모달 닫기
-		setShowLeatherModal(false) // 다른 모달 닫기
-	}
-
-	const handleStrapClick = () => {
-		setShowStrapModal(!showStrapModal)
-		setShowSubButtons(false) // 다른 모달 닫기
 		setShowAccessoryModal(false) // 다른 모달 닫기
 		setShowColorModal(false) // 다른 모달 닫기
 		setShowLeatherModal(false) // 다른 모달 닫기
@@ -365,7 +342,6 @@ function DesignTab({
 	const handleAccessoryClick = () => {
 		setShowAccessoryModal(!showAccessoryModal)
 		setShowSubButtons(false) // 다른 모달 닫기
-		setShowStrapModal(false) // 다른 모달 닫기
 		setShowColorModal(false) // 다른 모달 닫기
 		setShowLeatherModal(false) // 다른 모달 닫기
 	}
@@ -373,7 +349,6 @@ function DesignTab({
 	const handleColorClick = () => {
 		setShowColorModal(!showColorModal)
 		setShowSubButtons(false) // 다른 모달 닫기
-		setShowStrapModal(false) // 다른 모달 닫기
 		setShowAccessoryModal(false) // 다른 모달 닫기
 		setShowLeatherModal(false) // 다른 모달 닫기
 	}
@@ -386,7 +361,6 @@ function DesignTab({
 	const handleLeatherClick = () => {
 		setShowLeatherModal(!showLeatherModal)
 		setShowSubButtons(false) // 다른 모달 닫기
-		setShowStrapModal(false) // 다른 모달 닫기
 		setShowAccessoryModal(false) // 다른 모달 닫기
 		setShowColorModal(false) // 다른 모달 닫기
 	}
@@ -396,56 +370,98 @@ function DesignTab({
 		setShowLeatherModal(false)
 	}
 
-	const loadSketchTemplate = async (type: 'loafer' | 'heel') => {
+	const loadSketchTemplate = async (type: '더비' | '몽크스트랩' | '보트' | '사막화' | '윙팁' | '첼시') => {
 		if (!editorRef.current) return
 
-		const imageUrl = type === 'loafer' 
-			? `${window.location.origin}/loafer.JPG`
-			: `${window.location.origin}/heel.JPG`
+		const imageUrl = `${window.location.origin}/${type}.png`
 
 		try {
-			// TLImageAsset 구조에 맞는 에셋 생성
-			const imageAsset = {
-				id: `asset:${type}-${Date.now()}` as any,
-				typeName: 'asset' as const,
-				type: 'image' as const,
-				props: {
-					src: imageUrl,
-					w: 300,
-					h: 200,
-					mimeType: 'image/jpeg',
-					isAnimated: false,
-					name: `${type}.JPG`
-				},
-				meta: {}
-			}
+			// 이미지 로드 및 배경 제거
+			const img = new Image()
+			img.crossOrigin = 'anonymous'
+			
+			img.onload = async () => {
+				if (!editorRef.current) return
+				
+				// 배경 제거를 위해 Canvas 사용
+				const canvas = document.createElement('canvas')
+				const ctx = canvas.getContext('2d')
+				
+				if (!ctx) return
 
-			// 에셋을 에디터에 추가
-			await editorRef.current.createAssets([imageAsset])
-			const asset = imageAsset
-
-			console.log('에셋 생성 완료:', asset)
-
-			// 편집 가능한 이미지 도형 생성 (스케치 영역 컴포넌트 안에 배치)
-			const imageShape = {
-				type: 'image' as const,
-				x: 150, // 컴포넌트 영역 기준 x: 100 + 여백 50
-				y: 150, // 컴포넌트 영역 기준 y: 100 + 여백 50
-				props: {
-					assetId: asset.id,
-					w: 400,
-					h: 280
+				canvas.width = img.width
+				canvas.height = img.height
+				
+				// 이미지 그리기
+				ctx.drawImage(img, 0, 0)
+				
+				// 이미지 데이터 가져오기
+				const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+				const data = imageData.data
+				
+				// 배경(흰색 또는 매우 밝은 색)을 투명하게 만들기
+				for (let i = 0; i < data.length; i += 4) {
+					const r = data[i]
+					const g = data[i + 1]
+					const b = data[i + 2]
+					const a = data[i + 3]
+					
+					// 밝은 색 (흰색 배경)을 투명하게
+					const brightness = (r + g + b) / 3
+					if (brightness > 240 && a > 200) {
+						data[i + 3] = 0 // 투명하게
+					}
 				}
-			}
+				
+				ctx.putImageData(imageData, 0, 0)
+				
+				// 배경이 제거된 이미지를 데이터 URL로 변환
+				const processedImageUrl = canvas.toDataURL('image/png')
+				
+				// TLImageAsset 구조에 맞는 에셋 생성
+				const imageAsset = {
+					id: `asset:${type}-${Date.now()}` as any,
+					typeName: 'asset' as const,
+					type: 'image' as const,
+					props: {
+						src: processedImageUrl,
+						w: img.width,
+						h: img.height,
+						mimeType: 'image/png',
+						isAnimated: false,
+						name: `${type}.png`
+					},
+					meta: {}
+				}
 
-			// 에디터에 이미지 도형 추가
-			const createdShapes = editorRef.current.createShapes([imageShape])
+				// 에셋을 에디터에 추가
+				await editorRef.current.createAssets([imageAsset])
+				const asset = imageAsset
+				
+				console.log('에셋 생성 완료:', asset)
+
+				// 편집 가능한 이미지 도형 생성 (스케치 영역 컴포넌트 안에 배치)
+				const imageShape = {
+					type: 'image' as const,
+					x: 150,
+					y: 150,
+					props: {
+						assetId: asset.id,
+						w: 400,
+						h: 280
+					}
+				}
+
+				// 에디터에 이미지 도형 추가
+				const createdShapes = editorRef.current.createShapes([imageShape])
+				
+				console.log('이미지 도형 생성 완료:', createdShapes)
+				
+				// 생성된 이미지로 카메라 이동
+				editorRef.current.setCamera({ x: 0, y: 0, z: 1.5 })
+			}
 			
-			console.log('이미지 도형 생성 완료:', createdShapes)
-			console.log('현재 페이지 도형들:', editorRef.current.getCurrentPageShapes())
-			
-			// 생성된 이미지로 카메라 이동
-			editorRef.current.setCamera({ x: 0, y: 0, z: 1.5 })
+			img.src = imageUrl
 		} catch (error) {
 			console.error('이미지 로드 실패:', error)
 		}
@@ -614,18 +630,25 @@ function DesignTab({
 				return
 			}
 
-			// 베이스 이미지(로퍼 또는 힐)가 스케치 영역에 있는지 확인
+			// 베이스 이미지가 스케치 영역에 있는지 확인
 			const assets = editorRef.current.getAssets()
 			const hasBaseImage = shapesInSketchArea.some(shape => {
 				if (shape.type !== 'image') return false
 				const asset = assets.find(a => a.id === (shape as any).props?.assetId)
 				if (!asset) return false
+				
+				// 처리된 이미지는 asset의 name이나 src로 판단
 				const src = asset.props?.src || ''
-				return src.includes('loafer.JPG') || src.includes('heel.JPG')
+				const name = (asset.props as any)?.name || ''
+				
+				const baseImageNames = ['더비', '몽크스트랩', '보트', '사막화', '윙팁', '첼시']
+				return baseImageNames.some(baseName => 
+					(name && name.includes(baseName)) || (src && src.includes(baseName))
+				)
 			})
 
 			if (!hasBaseImage) {
-				alert('스케치 영역에 베이스 이미지(로퍼 또는 힐)가 필요합니다.')
+				alert('스케치 영역에 베이스 이미지가 필요합니다.')
 				return
 			}
 			
@@ -657,39 +680,23 @@ function DesignTab({
 	}, [])
 
 	const transformImageWithAI = async (imageDataUrl: string, leatherImageUrl?: string) => {
-		let progressInterval: number | undefined
-		
 		try {
 			// 로딩 시작
 			setIsLoading(true)
-			setLoadingProgress(0)
-			
-			// 진행률 시뮬레이션
-			progressInterval = setInterval(() => {
-				setLoadingProgress(prev => {
-					if (prev >= 90) return prev
-					return prev + Math.random() * 10
-				})
-			}, 200)
 
 			// Gemini API 키 (환경 변수에서 가져오거나 직접 설정)
 			const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyA7Czs8HbA-Hud1Zmyhe08vQr62gYjL0FU'
 			
 			if (API_KEY !== 'AIzaSyA7Czs8HbA-Hud1Zmyhe08vQr62gYjL0FU') {
-				clearInterval(progressInterval)
 				setIsLoading(false)
 				alert('Gemini API 키를 설정해주세요.\n\n방법 1: .env 파일에 VITE_GEMINI_API_KEY=your_api_key 추가\n방법 2: 코드에서 직접 API_KEY 변수 수정')
 				return
 			}
 
-			setLoadingProgress(20)
 			const genAI = new GoogleGenerativeAI(API_KEY)
 			
-			setLoadingProgress(40)
 			// 이미지 데이터를 base64로 변환
 			const base64Data = imageDataUrl.split(',')[1]
-			
-			setLoadingProgress(60)
 			// Gemini에 이미지와 프롬프트 전송 (할당량이 더 많은 모델 사용)
 			const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" })
 			
@@ -710,8 +717,6 @@ function DesignTab({
 					console.error('가죽 이미지 변환 실패:', error)
 				}
 			}
-			
-			setLoadingProgress(80)
 			
 			// 가죽 이미지가 있으면 두 개의 이미지를 모두 전송
 			const contentArray = [
@@ -734,8 +739,6 @@ function DesignTab({
 			}
 			
 			const result = await model.generateContent(contentArray)
-
-			setLoadingProgress(90)
 			const response = await result.response
 			
 			// 생성된 이미지 처리
@@ -747,34 +750,22 @@ function DesignTab({
 					// AI 생성 이미지를 캔버스에 추가
 					console.log(aiImageDataUrl, 'AI 생성 이미지 url')
 					
-					setLoadingProgress(100)
 					await addExportedImageToCanvas(aiImageDataUrl)
 					
 					// 로딩 완료
-					clearInterval(progressInterval)
 					setTimeout(() => {
 						setIsLoading(false)
-						setLoadingProgress(0)
 					}, 500)
 					return
 				}
 			}
 			
-			clearInterval(progressInterval)
 			setIsLoading(false)
-			setLoadingProgress(0)
 			alert('AI 이미지 생성에 실패했습니다.')
 			
 		} catch (error) {
 			console.error('AI 이미지 변환 실패:', error)
-			
-			// 진행률 인터벌 정리
-			if (progressInterval) {
-				clearInterval(progressInterval)
-			}
-			
 			setIsLoading(false)
-			setLoadingProgress(0)
 			alert('AI 이미지 변환에 실패했습니다.')
 		}
 	}
@@ -839,13 +830,6 @@ function DesignTab({
 					<div className="loading-content">
 						<div className="spinner"></div>
 						<div className="loading-text">이미지 변환 중...</div>
-						<div className="progress-bar">
-							<div 
-								className="progress-fill" 
-								style={{ width: `${loadingProgress}%` }}
-							></div>
-						</div>
-						<div className="progress-text">{Math.round(loadingProgress)}%</div>
 					</div>
 				</div>
 			)}
@@ -857,12 +841,6 @@ function DesignTab({
 						onClick={handleBaseClick}
 					>
 						베이스
-					</button>
-					<button 
-						className="template-btn"
-						onClick={handleStrapClick}
-					>
-						스트랩
 					</button>
 					<button 
 						className="template-btn"
@@ -904,21 +882,12 @@ function DesignTab({
 						)}
 					</div>
 				</div>
-				<div className="transform-section">
-					<button 
-						className="transform-btn"
-						onClick={exportCanvasAsImage}
-						disabled={false}
-					>
-						변환
-					</button>
-				</div>
 			</div>
 			<div className="tldraw-wrapper">
 				<Tldraw 
 					onMount={handleEditorMount}
 					licenseKey='tldraw-2026-01-04/WyJqWXh1VkZQTCIsWyIqIl0sMTYsIjIwMjYtMDEtMDQiXQ.DOPgWWJU87W+Pu4Ug4M+OfNVXPvLCQjpM35TLM2LaBgqSQMZd9VYCGR22b12N/aIs/Boj2IuoHQlRseuRQmF/w'
-					components={designComponents} 
+					components={designComponents}
 				/>
 			</div>
 			
@@ -939,63 +908,86 @@ function DesignTab({
 							<div 
 								className="modal-image-item"
 								onClick={() => {
-									loadSketchTemplate('loafer')
+									loadSketchTemplate('더비')
 									setShowSubButtons(false)
 								}}
 							>
 								<img 
-									src="/loafer.JPG" 
-									alt="로퍼" 
+									src="/더비.png" 
+									alt="더비" 
 									className="modal-image"
 								/>
-								<span className="modal-label">로퍼</span>
+								<span className="modal-label">더비</span>
 							</div>
 							<div 
 								className="modal-image-item"
 								onClick={() => {
-									loadSketchTemplate('heel')
+									loadSketchTemplate('몽크스트랩')
 									setShowSubButtons(false)
 								}}
 							>
 								<img 
-									src="/heel.JPG" 
-									alt="힐" 
+									src="/몽크스트랩.png" 
+									alt="몽크스트랩" 
 									className="modal-image"
 								/>
-								<span className="modal-label">힐</span>
+								<span className="modal-label">몽크스트랩</span>
 							</div>
-						</div>
-					</div>
-				</div>
-			)}
-
-			{/* 스트랩 모달 오버레이 */}
-			{showStrapModal && (
-				<div className="modal-overlay" onClick={() => setShowStrapModal(false)}>
-					<div className="modal-content" onClick={(e) => e.stopPropagation()}>
-						<div className="modal-header">
-							<h3>스트랩 선택</h3>
-							<button 
-								className="modal-close-btn"
-								onClick={() => setShowStrapModal(false)}
-							>
-								×
-							</button>
-						</div>
-						<div className="modal-body">
 							<div 
 								className="modal-image-item"
 								onClick={() => {
-									loadStrapImage()
-									setShowStrapModal(false)
+									loadSketchTemplate('보트')
+									setShowSubButtons(false)
 								}}
 							>
 								<img 
-									src="/strap1.png" 
-									alt="스트랩" 
+									src="/보트.png" 
+									alt="보트" 
 									className="modal-image"
 								/>
-								<span className="modal-label">스트랩</span>
+								<span className="modal-label">보트</span>
+							</div>
+							<div 
+								className="modal-image-item"
+								onClick={() => {
+									loadSketchTemplate('사막화')
+									setShowSubButtons(false)
+								}}
+							>
+								<img 
+									src="/사막화.png" 
+									alt="사막화" 
+									className="modal-image"
+								/>
+								<span className="modal-label">사막화</span>
+							</div>
+							<div 
+								className="modal-image-item"
+								onClick={() => {
+									loadSketchTemplate('윙팁')
+									setShowSubButtons(false)
+								}}
+							>
+								<img 
+									src="/윙팁.png" 
+									alt="윙팁" 
+									className="modal-image"
+								/>
+								<span className="modal-label">윙팁</span>
+							</div>
+							<div 
+								className="modal-image-item"
+								onClick={() => {
+									loadSketchTemplate('첼시')
+									setShowSubButtons(false)
+								}}
+							>
+								<img 
+									src="/첼시.png" 
+									alt="첼시" 
+									className="modal-image"
+								/>
+								<span className="modal-label">첼시</span>
 							</div>
 						</div>
 					</div>
@@ -1016,6 +1008,20 @@ function DesignTab({
 							</button>
 						</div>
 						<div className="modal-body">
+							<div 
+								className="modal-image-item"
+								onClick={() => {
+									loadStrapImage()
+									setShowAccessoryModal(false)
+								}}
+							>
+								<img 
+									src="/strap1.png" 
+									alt="스트랩" 
+									className="modal-image"
+								/>
+								<span className="modal-label">스트랩</span>
+							</div>
 							<div 
 								className="modal-image-item"
 								onClick={() => {
