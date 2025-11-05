@@ -696,9 +696,9 @@ const transformImageWithAI = async (imageDataUrl: string, patternUrl?: string) =
 			setIsLoading(true)
 
 			// Gemini API 키 (환경 변수에서 가져오거나 직접 설정)
-			const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyA7Czs8HbA-Hud1Zmyhe08vQr62gYjL0FU'
+			const API_KEY = 'AIzaSyC7ghUKzZUhkJXpA8hCukQtwtpjsbwYsfk'
 			
-			if (API_KEY !== 'AIzaSyA7Czs8HbA-Hud1Zmyhe08vQr62gYjL0FU') {
+			if (API_KEY !== 'AIzaSyC7ghUKzZUhkJXpA8hCukQtwtpjsbwYsfk') {
 				setIsLoading(false)
 				alert('Gemini API 키를 설정해주세요.\n\n방법 1: .env 파일에 VITE_GEMINI_API_KEY=your_api_key 추가\n방법 2: 코드에서 직접 API_KEY 변수 수정')
 				return
