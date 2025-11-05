@@ -16,9 +16,7 @@ function App() {
 	const [showSubButtons, setShowSubButtons] = useState(false)
 	const [showAccessoryModal, setShowAccessoryModal] = useState(false)
 	const [showColorModal, setShowColorModal] = useState(false)
-	const [showLeatherModal, setShowLeatherModal] = useState(false)
 	const [selectedColor, setSelectedColor] = useState<string>('')
-	const [selectedLeather, setSelectedLeather] = useState<string>('')
 	const [isLoading, setIsLoading] = useState(false)
 	const [selectedGender, setSelectedGender] = useState<'men' | 'women' | null>(null)
 	const [selectedCategory, setSelectedCategory] = useState<'boots' | 'flats' | 'heels' | 'loafers' | 'sandal' | 'sneakers' | null>(null)
@@ -59,12 +57,8 @@ function App() {
 						setShowAccessoryModal={setShowAccessoryModal}
 						showColorModal={showColorModal}
 						setShowColorModal={setShowColorModal}
-						showLeatherModal={showLeatherModal}
-						setShowLeatherModal={setShowLeatherModal}
 						selectedColor={selectedColor}
 						setSelectedColor={setSelectedColor}
-						selectedLeather={selectedLeather}
-						setSelectedLeather={setSelectedLeather}
 						isLoading={isLoading}
 						setIsLoading={setIsLoading}
 						selectedGender={selectedGender}
@@ -91,7 +85,7 @@ function DesignSketchComponent() {
 	// 스케치 영역 좌표
 	const sketchArea = {
 		x: 100,
-		y: 100,
+		y: 100, 
 		width: 500,
 		height: 400
 	}
@@ -292,12 +286,8 @@ interface DesignTabProps {
 	setShowAccessoryModal: (value: boolean) => void
 	showColorModal: boolean
 	setShowColorModal: (value: boolean) => void
-	showLeatherModal: boolean
-	setShowLeatherModal: (value: boolean) => void
 	selectedColor: string
 	setSelectedColor: (value: string) => void
-	selectedLeather: string
-	setSelectedLeather: (value: string) => void
 	isLoading: boolean
 	setIsLoading: (value: boolean) => void
 	selectedGender: 'men' | 'women' | null
@@ -315,12 +305,8 @@ interface DesignTabProps {
 	setShowAccessoryModal,
 	showColorModal,
 	setShowColorModal,
-	showLeatherModal,
-	setShowLeatherModal,
 	selectedColor,
 	setSelectedColor,
-	selectedLeather,
-	setSelectedLeather,
 	isLoading,
 	setIsLoading,
 	selectedGender,
@@ -328,6 +314,12 @@ interface DesignTabProps {
 	selectedCategory,
 	setSelectedCategory
 }: DesignTabProps) {
+
+    // 패턴 선택 상태 (디자인 탭 내부 보관)
+    const [showPatternModal, setShowPatternModal] = useState(false)
+    const [selectedPattern, setSelectedPattern] = useState<string>('')
+    const [selectedPatternUrl, setSelectedPatternUrl] = useState<string>('')
+    const [selectedPatternData, setSelectedPatternData] = useState<{ base64: string, mime: string } | null>(null)
 
 	const handleEditorMount = (editor: Editor) => {
 		if (editorRef.current !== editor) {
@@ -350,7 +342,7 @@ interface DesignTabProps {
 		setShowSubButtons(!showSubButtons)
 		setShowAccessoryModal(false) // 다른 모달 닫기
 		setShowColorModal(false) // 다른 모달 닫기
-		setShowLeatherModal(false) // 다른 모달 닫기
+        // 패턴/컬러 외 모달 닫기
 		// 모달 열 때 선택 상태 초기화
 		if (!showSubButtons) {
 			setSelectedGender(null)
@@ -362,14 +354,14 @@ interface DesignTabProps {
 		setShowAccessoryModal(!showAccessoryModal)
 		setShowSubButtons(false) // 다른 모달 닫기
 		setShowColorModal(false) // 다른 모달 닫기
-		setShowLeatherModal(false) // 다른 모달 닫기
+        // 패턴/컬러 외 모달 닫기
 	}
 
 	const handleColorClick = () => {
 		setShowColorModal(!showColorModal)
 		setShowSubButtons(false) // 다른 모달 닫기
 		setShowAccessoryModal(false) // 다른 모달 닫기
-		setShowLeatherModal(false) // 다른 모달 닫기
+        // 패턴/컬러 외 모달 닫기
 	}
 
 	const handleColorSelect = (colorHex: string) => {
@@ -377,17 +369,7 @@ interface DesignTabProps {
 		setShowColorModal(false)
 	}
 
-	const handleLeatherClick = () => {
-		setShowLeatherModal(!showLeatherModal)
-		setShowSubButtons(false) // 다른 모달 닫기
-		setShowAccessoryModal(false) // 다른 모달 닫기
-		setShowColorModal(false) // 다른 모달 닫기
-	}
 
-	const handleLeatherSelect = (leatherName: string) => {
-		setSelectedLeather(leatherName)
-		setShowLeatherModal(false)
-	}
 
 	const loadSketchTemplate = async (imagePath: string, imageName: string) => {
 		if (!editorRef.current) return
@@ -684,9 +666,10 @@ interface DesignTabProps {
 			const image = await editorRef.current.toImageDataUrl(shapesInSketchArea)
 			console.log(image.url)
 			
-			// AI로 이미지 변환
-			const leatherImageUrl = selectedLeather ? `${window.location.origin}/${selectedLeather}.jpeg` : undefined
-			await transformImageWithAI(image.url, leatherImageUrl)
+            // AI로 이미지 변환 (패턴/컬러만 반영) - 선택 패턴 URL을 파라미터로 전달
+            const patternUrl = `public/patterns/${encodeURIComponent(selectedPattern)}`
+            console.log('[transform] imageUrl:', image.url, 'patternUrl:', patternUrl)
+            await transformImageWithAI(image.url, patternUrl)
 			
 		} catch (error) {
 			console.error('이미지 내보내기 실패:', error)
@@ -707,7 +690,7 @@ interface DesignTabProps {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
 
-	const transformImageWithAI = async (imageDataUrl: string, leatherImageUrl?: string) => {
+const transformImageWithAI = async (imageDataUrl: string, patternUrl?: string) => {
 		try {
 			// 로딩 시작
 			setIsLoading(true)
@@ -725,48 +708,106 @@ interface DesignTabProps {
 			
 			// 이미지 데이터를 base64로 변환
 			const base64Data = imageDataUrl.split(',')[1]
-			// Gemini에 이미지와 프롬프트 전송 (할당량이 더 많은 모델 사용)
+			const patternImageData = patternUrl		// Gemini에 이미지와 프롬프트 전송 (할당량이 더 많은 모델 사용)
 			const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" })
 			
-			const colorPrompt = selectedColor ? ` with the color ${selectedColor}` : ''
-			const leatherPrompt = leatherImageUrl ? ` using the leather material shown in the reference image` : ''
-			const prompt = `Please transform the sketch image into a realistic shoe image, preserving as much of the original sketch's details and design as possible without additional inference or creative changes.${colorPrompt}${leatherPrompt}`
-			
-			// 가죽 이미지가 있으면 base64로 변환
-			let leatherBase64Data = ''
-			if (leatherImageUrl) {
-				try {
-					const response = await fetch(leatherImageUrl)
-					const blob = await response.blob()
-					const arrayBuffer = await blob.arrayBuffer()
-					const uint8Array = new Uint8Array(arrayBuffer)
-					leatherBase64Data = btoa(String.fromCharCode(...uint8Array))
-				} catch (error) {
-					console.error('가죽 이미지 변환 실패:', error)
+			// 선택된 색상이 유효한 HEX 코드인지 확인 및 정규화
+			let validColor = null
+			if (selectedColor) {
+				const normalizedColor = selectedColor.trim().toUpperCase()
+				if (/^#[0-9A-Fa-f]{6}$/.test(normalizedColor)) {
+					validColor = normalizedColor
+				} else if (/^#[0-9A-Fa-f]{1,5}$/i.test(normalizedColor)) {
+					// 불완전한 HEX 코드는 0으로 패딩
+					const hexPart = normalizedColor.slice(1).padEnd(6, '0').substring(0, 6)
+					validColor = `#${hexPart}`
 				}
 			}
 			
-			// 가죽 이미지가 있으면 두 개의 이미지를 모두 전송
-			const contentArray = [
-				prompt,
-				{
-					inlineData: {
-						data: base64Data,
-						mimeType: "image/png"
-					}
-				}
+			// 색상 프롬프트 생성 - 더 명확하고 강조된 설명
+			const colorPrompt = validColor ? ` IMPORTANT: Apply the exact hex color ${validColor} to the shoe upper material. The color reference image provided shows the exact color to use. Make sure the entire upper surface consistently uses this color ${validColor}. Do not use any other color for the upper - only use ${validColor}.` : ''
+			const patternPrompt = patternUrl ? ` Tile and wrap the provided pattern reference realistically onto the shoe upper (avoid stretching; follow curvature; keep plausible scale).` : ''
+			const prompt = `Task: Convert the sketch into a photorealistic shoe image while preserving the original design lines and silhouette. ${colorPrompt} ${patternPrompt} Do not change the shoe design. Do not add text or logos. Render a clean studio background.`
+			
+			console.log('[AI 변환] 선택된 색상:', validColor || '없음')
+			console.log('[AI 변환] 프롬프트:', prompt)
+			
+// leather reference removed
+			
+// 패턴 이미지가 있으면 함께 전송
+const contentArray: any[] = [
+	{
+		inlineData: {
+			data: base64Data,
+			mimeType: "image/png"
+		}
+	},
+	{ text: prompt },	
 			]
-			
-			if (leatherBase64Data) {
-				contentArray.push({
-					inlineData: {
-						data: leatherBase64Data,
-						mimeType: "image/jpeg"
+
+
+            // 패턴 이미지가 URL로 전달된 경우 전송
+            if (patternUrl) {
+
+                try {
+                    const res = await fetch(patternUrl)
+                    const blob = await res.blob()
+                    const reader = new FileReader()
+                    const base64 = await new Promise<string>((resolve, reject) => {
+                        reader.onloadend = () => {
+                            const result = reader.result as string
+                            resolve(result.split(',')[1] || '')
+                        }
+                        reader.onerror = reject
+                        reader.readAsDataURL(blob)
+                    })
+                    const lower = patternUrl.toLowerCase()
+                    const mime = lower.endsWith('.png') ? 'image/png' : lower.endsWith('.webp') ? 'image/webp' : (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) ? 'image/jpeg' : blob.type || 'image/jpeg'
+                    contentArray.push({ inlineData: { data: base64, mimeType: mime } })
+                } catch (e) {
+                    console.error('패턴 URL 로드 실패:', e)
+                }
+            }
+
+			// 컬러 스와치 이미지를 함께 전송하여 색상 적용을 강화
+			// 색상 스와치를 더 크게 만들어서 AI가 색상을 더 정확하게 인식할 수 있도록 함
+			if (validColor) {
+				try {
+					const canvas = document.createElement('canvas')
+					// 더 큰 크기로 생성하여 색상 인식 정확도 향상
+					canvas.width = 256
+					canvas.height = 256
+					const ctx = canvas.getContext('2d')
+					if (ctx) {
+						// 유효한 색상으로 설정
+						ctx.fillStyle = validColor
+						ctx.fillRect(0, 0, canvas.width, canvas.height)
+						const dataUrl = canvas.toDataURL('image/png')
+						const base64 = dataUrl.split(',')[1]
+						contentArray.push({ 
+							inlineData: { 
+								data: base64, 
+								mimeType: 'image/png' 
+							}
+						})
+						console.log('[AI 변환] 색상 스와치 이미지 전송:', validColor)
 					}
-				})
+				} catch (e) {
+					console.error('컬러 스와치 생성 실패:', e)
+				}
+			} else {
+				console.log('[AI 변환] 색상이 선택되지 않았거나 유효하지 않음')
 			}
 			
-			const result = await model.generateContent(contentArray)
+			// 하나의 요청에서 텍스트+여러 이미지를 동시에 전송
+			const result = await model.generateContent({
+				contents: [
+					{
+						role: 'user',
+						parts: contentArray
+					}
+				]
+			})
 			const response = await result.response
 			
 			// 생성된 이미지 처리
@@ -876,23 +917,37 @@ interface DesignTabProps {
 					>
 						부자재
 					</button>
-					<div className="leather-button-container">
+					<div className="pattern-button-container" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
 						<button 
 							className="template-btn"
-							onClick={handleLeatherClick}
+                            onClick={() => {
+								setShowPatternModal(true)
+								setShowSubButtons(false)
+								setShowAccessoryModal(false)
+								setShowColorModal(false)
+							}}
 						>
-							가죽
+							패턴
 						</button>
-						{selectedLeather && (
+						{selectedPattern && (
 							<div 
-								className="selected-leather-chip"
-								title={`선택된 가죽: ${selectedLeather}`}
-								onClick={handleLeatherClick}
-							>
-								{selectedLeather === 'leather1' ? 'L1' : 'L2'}
-							</div>
+								title={`선택된 패턴: ${selectedPattern}`}
+								onClick={() => setShowPatternModal(true)}
+								style={{
+									width: 32,
+									height: 24,
+									borderRadius: 4,
+									border: '2px solid #333',
+									boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+									cursor: 'pointer',
+									backgroundImage: `url(${`/patterns/${encodeURIComponent(selectedPattern)}`})`,
+									backgroundSize: 'cover',
+									backgroundPosition: 'center',
+								}}
+							/>
 						)}
 					</div>
+
 					<div className="color-button-container">
 						<button 
 							className="template-btn"
@@ -918,6 +973,83 @@ interface DesignTabProps {
 					components={designComponents}
 				/>
 			</div>
+		{/* 패턴 모달 오버레이 */}
+		{showPatternModal && (
+			<div className="modal-overlay" onClick={() => setShowPatternModal(false)}>
+				<div className="modal-content" onClick={(e) => e.stopPropagation()}>
+					<div className="modal-header">
+						<h3>패턴 선택</h3>
+						<button 
+							className="modal-close-btn"
+							onClick={() => setShowPatternModal(false)}
+						>
+							×
+						</button>
+					</div>
+					<div className="modal-body leather-grid">
+						{[
+							"_.jpeg",
+							"_ (1).jpeg",
+							"_ (2).jpeg",
+							"_ (3).jpeg",
+							"_ (4).jpeg",
+							"_ (5).jpeg",
+							"_ (6).jpeg",
+							"a6478315-b040-4924-bca8-676441038fcc.jpeg",
+							"Agostino Veneziano - Ornamental print (c_ 1530).jpeg",
+							"Back in time Hand cut leather patterns for Bags and jackets by Logan Riese.jpeg",
+							"beullaeg-gogeub-gajug-jilgam-baegyeong.jpg",
+							"Checkered Fabric Pattern Free Download.jpeg",
+							"Crocodile-Pattern-and-PU-Leather-for-Hand-Bag.webp",
+							"Discover our unique collection of camouflage….jpeg",
+							"Draper James Free Holiday 2019 Phone….jpeg",
+							"Let us bring your vision to life_ From the best….jpeg",
+							"Morandini Marcello 534-2008 not interesting enough….jpeg",
+							"New Burberry monogram, designed by Peter Saville….jpeg",
+							"OPF7RR0.jpg",
+							"preview.jpg",
+						].map((name, idx) => (
+							<div 
+								key={name}
+								className="leather-item"
+                                onClick={async () => {
+                                    setSelectedPattern(name)
+                                    setSelectedPatternUrl(`${window.location.origin}/patterns/${encodeURIComponent(name)}`)
+                                    try {
+                                        const url = `/patterns/${encodeURIComponent(name)}`
+                                        const res = await fetch(url)
+                                        const blob = await res.blob()
+                                        const reader = new FileReader()
+                                        const base64 = await new Promise<string>((resolve, reject) => {
+                                            reader.onloadend = () => {
+                                                const result = reader.result as string
+                                                resolve(result.split(',')[1] || '')
+                                            }
+                                            reader.onerror = reject
+                                            reader.readAsDataURL(blob)
+                                        })
+                                        const lower = name.toLowerCase()
+                                        const mime = lower.endsWith('.png') ? 'image/png' : lower.endsWith('.webp') ? 'image/webp' : (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) ? 'image/jpeg' : 'image/jpeg'
+                                        setSelectedPatternData({ base64, mime })
+                                    } catch (e) {
+                                        console.error('패턴 로드 실패:', e)
+                                        setSelectedPatternData(null)
+                                    }
+                                    setShowPatternModal(false)
+                                }}
+							>
+								<img 
+									src={`/patterns/${encodeURIComponent(name)}`}
+									alt={`패턴 ${idx + 1}`}
+									className="leather-image"
+								/>
+								<span className="leather-label">패턴 {idx + 1}</span>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		)}
 			
 			{/* 베이스 모달 오버레이 */}
 			{showSubButtons && (
@@ -1387,101 +1519,218 @@ interface DesignTabProps {
 								×
 							</button>
 						</div>
-						<div className="modal-body color-grid">
-							<div 
-								className="color-item"
-								onClick={() => handleColorSelect('#FF0000')}
-								style={{ backgroundColor: '#FF0000' }}
-							>
-								<span className="color-label">빨강</span>
+						<div className="modal-body color-modal-body">
+							{/* 색상 선택기 */}
+							<div className="color-picker-section">
+								<div className="color-picker-label">원하는 색상을 선택하세요</div>
+								<div className="color-picker-wrapper">
+									<input
+										type="color"
+										value={(() => {
+											const color = selectedColor || '#FF0000'
+											// 유효한 6자리 HEX 코드이면 그대로 사용, 아니면 0으로 패딩하여 유효한 색상으로 변환
+											if (/^#[0-9A-Fa-f]{1,6}$/i.test(color)) {
+												const hexPart = color.slice(1).padEnd(6, '0').substring(0, 6)
+												return `#${hexPart.toUpperCase()}`
+											}
+											return '#FF0000'
+										})()}
+										onChange={(e) => setSelectedColor(e.target.value.toUpperCase())}
+										className="color-picker-input"
+									/>
+									<div className="color-picker-info">
+										<div 
+											className="color-preview"
+											style={{ 
+												backgroundColor: (() => {
+													const color = selectedColor || '#FF0000'
+													if (/^#[0-9A-Fa-f]{1,6}$/i.test(color)) {
+														const hexPart = color.slice(1).padEnd(6, '0').substring(0, 6)
+														return `#${hexPart.toUpperCase()}`
+													}
+													return '#FF0000'
+												})()
+											}}
+										/>
+										<input
+											type="text"
+											value={selectedColor || '#FF0000'}
+											onChange={(e) => {
+												const value = e.target.value.trim().toUpperCase()
+												// #로 시작하는지 확인하고, 없으면 추가
+												const hexValue = value.startsWith('#') ? value : `#${value}`
+												// 유효한 HEX 문자가 입력되는 동안 업데이트 (최대 7자: #RRGGBB)
+												if (/^#[0-9A-Fa-f]{0,6}$/i.test(hexValue)) {
+													setSelectedColor(hexValue)
+												} else if (value === '' || value === '#') {
+													setSelectedColor('#')
+												}
+											}}
+											onBlur={(e) => {
+												// 포커스가 벗어날 때 유효성 검사 및 자동 보정
+												const value = e.target.value.trim().toUpperCase()
+												if (!value || value === '#') {
+													setSelectedColor('#FF0000')
+												} else {
+													let hexValue = value.startsWith('#') ? value : `#${value}`
+													// 6자리 미만이면 0으로 채우기
+													if (hexValue.length > 1 && hexValue.length < 7) {
+														const hexPart = hexValue.slice(1)
+														hexValue = `#${hexPart.padEnd(6, '0')}`
+													}
+													// 유효한 HEX 코드인지 최종 검증
+													if (/^#[0-9A-Fa-f]{6}$/i.test(hexValue)) {
+														setSelectedColor(hexValue)
+													} else {
+														// 유효하지 않으면 기본값으로 되돌림
+														setSelectedColor('#FF0000')
+														alert('유효하지 않은 HEX 코드입니다. 기본 색상으로 설정됩니다.')
+													}
+												}
+											}}
+											placeholder="#FF0000"
+											className="color-hex-input"
+											maxLength={7}
+										/>
+									</div>
+								</div>
 							</div>
-							<div 
-								className="color-item"
-								onClick={() => handleColorSelect('#FFA500')}
-								style={{ backgroundColor: '#FFA500' }}
-							>
-								<span className="color-label">주황</span>
+
+							{/* 기본 색상 팔레트 */}
+							<div className="color-palette-section">
+								<div className="color-palette-label">빠른 선택</div>
+								<div className="color-grid">
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#FF0000')}
+										style={{ backgroundColor: '#FF0000' }}
+									>
+										<span className="color-label">빨강</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#FF4500')}
+										style={{ backgroundColor: '#FF4500' }}
+									>
+										<span className="color-label">주황</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#FFD700')}
+										style={{ backgroundColor: '#FFD700' }}
+									>
+										<span className="color-label">노랑</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#32CD32')}
+										style={{ backgroundColor: '#32CD32' }}
+									>
+										<span className="color-label">초록</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#00CED1')}
+										style={{ backgroundColor: '#00CED1' }}
+									>
+										<span className="color-label">청록</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#0000FF')}
+										style={{ backgroundColor: '#0000FF' }}
+									>
+										<span className="color-label">파랑</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#4B0082')}
+										style={{ backgroundColor: '#4B0082' }}
+									>
+										<span className="color-label">남색</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#800080')}
+										style={{ backgroundColor: '#800080' }}
+									>
+										<span className="color-label">보라</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#FF1493')}
+										style={{ backgroundColor: '#FF1493' }}
+									>
+										<span className="color-label">분홍</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#8B4513')}
+										style={{ backgroundColor: '#8B4513' }}
+									>
+										<span className="color-label">갈색</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#000000')}
+										style={{ backgroundColor: '#000000' }}
+									>
+										<span className="color-label">검정</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#808080')}
+										style={{ backgroundColor: '#808080' }}
+									>
+										<span className="color-label">회색</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#FFFFFF')}
+										style={{ backgroundColor: '#FFFFFF', border: '2px solid #ddd' }}
+									>
+										<span className="color-label" style={{ color: '#333', textShadow: 'none' }}>흰색</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#C0C0C0')}
+										style={{ backgroundColor: '#C0C0C0' }}
+									>
+										<span className="color-label" style={{ color: '#333', textShadow: 'none' }}>은색</span>
+									</div>
+									<div 
+										className="color-item"
+										onClick={() => handleColorSelect('#FFD700')}
+										style={{ backgroundColor: '#FFD700' }}
+									>
+										<span className="color-label" style={{ color: '#333', textShadow: 'none' }}>금색</span>
+									</div>
+								</div>
 							</div>
-							<div 
-								className="color-item"
-								onClick={() => handleColorSelect('#FFFF00')}
-								style={{ backgroundColor: '#FFFF00' }}
-							>
-								<span className="color-label">노랑</span>
-							</div>
-							<div 
-								className="color-item"
-								onClick={() => handleColorSelect('#00FF00')}
-								style={{ backgroundColor: '#00FF00' }}
-							>
-								<span className="color-label">초록</span>
-							</div>
-							<div 
-								className="color-item"
-								onClick={() => handleColorSelect('#0000FF')}
-								style={{ backgroundColor: '#0000FF' }}
-							>
-								<span className="color-label">파랑</span>
-							</div>
-							<div 
-								className="color-item"
-								onClick={() => handleColorSelect('#000080')}
-								style={{ backgroundColor: '#000080' }}
-							>
-								<span className="color-label">남색</span>
-							</div>
-							<div 
-								className="color-item"
-								onClick={() => handleColorSelect('#800080')}
-								style={{ backgroundColor: '#800080' }}
-							>
-								<span className="color-label">보라</span>
+
+							{/* 확인 버튼 */}
+							<div className="color-modal-footer">
+								<button
+									className="color-confirm-btn"
+									onClick={() => {
+										if (selectedColor) {
+											setShowColorModal(false)
+										} else {
+											// 색상이 선택되지 않았으면 기본값 설정
+											setSelectedColor('#FF0000')
+											setShowColorModal(false)
+										}
+									}}
+								>
+									확인
+								</button>
 							</div>
 						</div>
 					</div>
 				</div>
 			)}
 
-			{/* 가죽 모달 오버레이 */}
-			{showLeatherModal && (
-				<div className="modal-overlay" onClick={() => setShowLeatherModal(false)}>
-					<div className="modal-content" onClick={(e) => e.stopPropagation()}>
-						<div className="modal-header">
-							<h3>가죽 소재 선택</h3>
-							<button 
-								className="modal-close-btn"
-								onClick={() => setShowLeatherModal(false)}
-							>
-								×
-							</button>
-						</div>
-						<div className="modal-body leather-grid">
-							<div 
-								className="leather-item"
-								onClick={() => handleLeatherSelect('leather1')}
-							>
-								<img 
-									src="/leather1.jpeg" 
-									alt="가죽1" 
-									className="leather-image"
-								/>
-								<span className="leather-label">가죽1</span>
-							</div>
-							<div 
-								className="leather-item"
-								onClick={() => handleLeatherSelect('leather2')}
-							>
-								<img 
-									src="/leather2.jpeg" 
-									alt="가죽2" 
-									className="leather-image"
-								/>
-								<span className="leather-label">가죽2</span>
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
+
 		</div>
 	)
 }
